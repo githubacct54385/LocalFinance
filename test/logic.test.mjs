@@ -303,3 +303,12 @@ test('recurring brokerage contributions are detected as investing, Zelle is not'
   assert.equal(rows.filter((r) => /ZELLE/.test(r.description)).every((r) => r.type === 'transfer'), true);
   assert.equal(rows.filter((r) => /SCHWAB/.test(r.description)).every((r) => r.type === 'investment'), true);
 });
+
+test('kids activities keywords win over gym/school keywords', () => {
+  assert.equal(categorize('YOUTH SOCCER LEAGUE SPRING'), 'Kids & Activities');
+  assert.equal(categorize('SUNNY HILLS SUMMER CAMP'), 'Kids & Activities');
+  assert.equal(categorize('AFTER SCHOOL PROGRAM TUITION'), 'Kids & Activities'); // not Education
+  assert.equal(categorize('ACME GYMNASTICS CENTER'), 'Kids & Activities');       // not Health (GYM)
+  assert.equal(categorize('PLANET FITNESS MONTHLY'), 'Health');
+  assert.equal(categorize('CITY UNIVERSITY BOOKSTORE'), 'Education');
+});

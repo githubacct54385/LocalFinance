@@ -4,7 +4,7 @@
 
 export const CATEGORIES = [
   'Groceries', 'Dining', 'Gas & Auto', 'Transport', 'Shopping', 'Entertainment', 'Subscriptions',
-  'Utilities', 'Housing', 'Health', 'Insurance', 'Travel', 'Personal Care', 'Education',
+  'Utilities', 'Housing', 'Health', 'Insurance', 'Travel', 'Kids & Activities', 'Personal Care', 'Education',
   'Gifts & Donations', 'Pets', 'Fees', 'Cash', 'Checks',
   'Investments', 'Income', 'Transfer', 'Uncategorized',
 ];
@@ -39,6 +39,11 @@ const DEFAULT_RULES = [
     'INTERNET', 'ENERGY', 'WASTE', 'SEWER', 'NATIONAL GRID', 'CON ED', 'PG&E', 'FRONTIER COMM', 'CENTURYLINK',
     'OPTIMUM', 'COX COMM', 'DISH NETWORK', 'DIRECTV', 'MINT MOBILE', 'VISIBLE', 'GOOGLE FI', 'CRICKET WIRELESS']],
   ['Housing', ['RENT', 'MORTGAGE', 'HOA ', 'PROPERTY MGMT', 'PROPERTY MANAGEMENT', 'LEASE', 'APARTMENT', 'REALTY', 'LANDLORD']],
+  // Before Health/Education so "GYMNASTICS" and "AFTER SCHOOL" are not mistaken for a gym or school.
+  ['Kids & Activities', ['SOCCER', 'SUMMER CAMP', 'DAY CAMP', 'AFTER SCHOOL', 'AFTERSCHOOL', 'AFTER-SCHOOL', 'LITTLE LEAGUE',
+    'GYMNASTICS', 'GYMBOREE', 'KARATE', 'TAEKWONDO', 'DANCE STUDIO', 'SWIM LESSON', 'SWIM SCHOOL', 'MUSIC LESSON',
+    'KUMON', 'MATHNASIUM', 'CHILDCARE', 'CHILD CARE', 'DAYCARE', 'KINDERCARE', 'BRIGHT HORIZONS', 'GIRL SCOUT',
+    'BOY SCOUT', 'YOUTH SPORTS', 'SPORTS CAMP', 'RECREATION CENTER REG']],
   ['Health', ['PHARMACY', 'CVS', 'WALGREENS', 'DENTAL', 'DOCTOR', 'MEDICAL', 'HOSPITAL', 'CLINIC', 'GYM', 'FITNESS',
     'URGENT CARE', 'OPTOM', 'LABCORP', 'QUEST DIAG', 'THERAPY', 'DERMATOLOG', 'YMCA', 'ORANGETHEORY', 'ANYTIME FITNESS']],
   ['Insurance', ['INSURANCE', 'GEICO', 'STATE FARM', 'PROGRESSIVE', 'ALLSTATE', 'LIBERTY MUTUAL', 'USAA', 'NATIONWIDE', 'TRAVELERS']],
