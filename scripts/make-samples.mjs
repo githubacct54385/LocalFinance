@@ -31,9 +31,9 @@ for (let d = START; d <= END; d = addDays(d, 1)) {
   const dom = d.getUTCDate();
   const dow = d.getUTCDay();
   // paychecks on the 5th and 20th (Fri-shifted not needed for a sample)
-  if (dom === 5 || dom === 20) checking.push({ d, desc: 'ACME CORP PAYROLL', amt: 3037.68 });
-  // rent by check, #1001 upward, on the 1st
-  if (dom === 1) checking.push({ d, desc: 'CHECK', amt: -1450, check: String(1001 + checking.filter((x) => x.check).length) });
+  if (dom === 5 || dom === 20) checking.push({ d, desc: 'ACME CORP PAYROLL', amt: 1650 });
+  // a small monthly check (say, a babysitter), numbered #1001 upward. Deterministic amounts 45-119.
+  if (dom === 15) checking.push({ d, desc: 'CHECK', amt: -(45 + ((d.getUTCMonth() * 17) % 75)), check: String(1001 + checking.filter((x) => x.check).length) });
   // monthly brokerage contribution + a couple of Zelle payments (deterministic, no randomness)
   if (dom === 12) checking.push({ d, desc: `ONLINE TRANSFER REF #IB0${(dom * 7919 + d.getUTCMonth() * 104729) % 1e8} TO SCHWAB BROKERAGE MONEYLINK ON ${mdy2(d)}`, amt: -300 });
   if (dom === 9) checking.push({ d, desc: `ZELLE FROM A FRIEND ON ${mdy2(d)} REF #${dom}XK${d.getUTCMonth()}`, amt: 45 });
@@ -41,8 +41,6 @@ for (let d = START; d <= END; d = addDays(d, 1)) {
   // internet + electric
   if (dom === 8) checking.push({ d, desc: 'SPECTRUM INTERNET AUTOPAY', amt: -79.99 });
   if (dom === 12) checking.push({ d, desc: 'CITY POWER & LIGHT ELECTRIC', amt: -Number(between(70, 140).toFixed(2)) });
-  // occasional extra check
-  if (dom === 15 && rand() < 0.4) checking.push({ d, desc: 'CHECK', amt: -Number(between(40, 200).toFixed(2)), check: String(2000 + Math.floor(rand() * 900)) });
   // ATM cash
   if (dow === 6 && rand() < 0.25) checking.push({ d, desc: 'ATM WITHDRAWAL MAIN ST', amt: -60 });
   // move money to second checking on the 6th
@@ -63,11 +61,20 @@ for (let d = START; d <= END; d = addDays(d, 1)) {
   // credit card purchases
   if (dom === 3) card.push({ d, desc: 'NETFLIX.COM', amt: -15.49 });
   if (dom === 17) card.push({ d, desc: 'SPOTIFY USA', amt: -11.99 });
-  if (dow === 0) card.push({ d, desc: `TRADER JOES #${100 + Math.floor(rand() * 5)} ANYTOWN`, amt: -Number(between(45, 110).toFixed(2)) });
-  if (dow === 3 && rand() < 0.5) card.push({ d, desc: `SAFEWAY #${1000 + Math.floor(rand() * 9)}`, amt: -Number(between(20, 70).toFixed(2)) });
-  if (rand() < 0.28) card.push({ d, desc: `${pick(['STARBUCKS STORE', 'CHIPOTLE ONLINE', 'JOES PIZZA', 'CORNER CAFE', 'DOORDASH*ORDER'])} ${Math.floor(rand() * 9999)}`, amt: -Number(between(5, 38).toFixed(2)) });
+  if (dow === 0) card.push({ d, desc: `TRADER JOES #${100 + Math.floor(rand() * 5)} ANYTOWN`, amt: -Number(between(60, 130).toFixed(2)) });
+  if (dow === 3 && rand() < 0.8) card.push({ d, desc: `SAFEWAY #${1000 + Math.floor(rand() * 9)}`, amt: -Number(between(25, 85).toFixed(2)) });
+  // dining: quick bites on weekdays, date nights on Fri/Sat
+  if (rand() < (dow >= 5 ? 0.7 : 0.35)) {
+    const night = dow >= 5;
+    card.push({
+      d,
+      desc: `${pick(night ? ['SUSHI HOUSE', 'BISTRO ROUGE', 'THE GRILL ROOM', 'TACO LOCO', 'OLIVE & VINE KITCHEN'] : ['STARBUCKS STORE', 'CHIPOTLE ONLINE', 'JOES PIZZA', 'CORNER CAFE', 'DOORDASH*ORDER'])} ${Math.floor(rand() * 9999)}`,
+      amt: -Number((night ? between(32, 95) : between(7, 28)).toFixed(2)),
+    });
+  }
   if (rand() < 0.12) card.push({ d, desc: `SHELL OIL ${Math.floor(rand() * 99999)}`, amt: -Number(between(30, 60).toFixed(2)) });
-  if (rand() < 0.14) card.push({ d, desc: `AMZN MKTP US*${Math.floor(rand() * 1e5).toString(36).toUpperCase()}`, amt: -Number(between(8, 120).toFixed(2)) });
+  if (rand() < 0.12) card.push({ d, desc: `AMZN MKTP US*${Math.floor(rand() * 1e5).toString(36).toUpperCase()}`, amt: -Number(between(10, 110).toFixed(2)) });
+  if (rand() < 0.06) card.push({ d, desc: `TARGET T-${Math.floor(rand() * 9000)}`, amt: -Number(between(15, 80).toFixed(2)) });
   if (rand() < 0.03) card.push({ d, desc: 'HOME DEPOT 0421', amt: -Number(between(25, 180).toFixed(2)) });
   if (dom === 25 && rand() < 0.3) card.push({ d, desc: 'AMAZON RETURN CREDIT', amt: Number(between(10, 40).toFixed(2)) });
 }
@@ -88,6 +95,10 @@ for (let y = 2025, m = 10; y < 2026 || m <= 10; m++) {
   card.push({ d: addDays(payDay, 1), desc: 'ONLINE PAYMENT THANK YOU', amt: -amt, pay: true });
 }
 
+// Random store numbers must never coincidentally look like a real account's last four digits.
+const AVOID = [['38', '59'], ['61', '07']].map((p) => p.join(''));
+const sanitize = (text) => AVOID.reduce((t, bad) => t.split(bad).join(bad.slice(0, 3) + String((+bad[3] + 1) % 10)), text);
+
 function toCsv(title, items) {
   const rows = items
     .filter((x) => x.d <= END)
@@ -96,7 +107,7 @@ function toCsv(title, items) {
       const status = title === 'CreditCard' ? (x.d >= PENDING_FROM ? 'Pending' : 'Posted') : 'Posted';
       return `${mdy(x.d)},${x.desc.includes(',') ? `"${x.desc}"` : x.desc},${num(x.amt)},${x.check ?? ''},${status}`;
     });
-  return [`${title},,,,`, 'DATE,DESCRIPTION,AMOUNT,CHECK #,STATUS', ...rows, ''].join('\n');
+  return sanitize([`${title},,,,`, 'DATE,DESCRIPTION,AMOUNT,CHECK #,STATUS', ...rows, ''].join('\n'));
 }
 
 writeFileSync(join(out, '7001-checking.csv'), toCsv('7001 Checking', checking));

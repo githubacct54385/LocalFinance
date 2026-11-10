@@ -165,7 +165,7 @@ test('monthly summary: spending excludes card payments, income is paychecks only
   const { accounts, txns } = loadSamples();
   const rows = enrich(txns, accounts);
   const [m] = monthlySummary(rows, ['2026-08']);
-  assert.equal(m.income, 2 * 303768);
+  assert.equal(m.income, 2 * 165000);
   // card-payment dollars (~$900 a month) would roughly double this figure if double-counted
   const cardOnly = rows.filter((r) => r.accountId === 'creditcard' && r.date.startsWith('2026-08') && r.type !== 'transfer');
   const checkingOnly = rows.filter((r) => r.accountId !== 'creditcard' && r.date.startsWith('2026-08') && r.type === 'spending');
