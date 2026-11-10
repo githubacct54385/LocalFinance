@@ -10,6 +10,14 @@ money goes: spending by category, recurring bills, checks, investments. Your dat
 
 **[Open the live demo](https://githubacct54385.github.io/LocalFinance/)**. On a phone, use Add to Home Screen to install it.
 
+<p align="center"><img src="docs/screenshots/overview.jpg" width="560" alt="Overview: income vs. spending chart and spending by category"></p>
+<p align="center">
+  <img src="docs/screenshots/review-phone.jpg" width="230" alt="Phone view of the Review screen, categorizing one merchant at a time">
+  &nbsp;
+  <img src="docs/screenshots/recurring.jpg" width="400" alt="Recurring bills, income, and investing detected automatically">
+</p>
+<p align="center"><sub>Screenshots use the generated fake sample data in <code>samples/</code>.</sub></p>
+
 ## Why I built it
 
 Apps like Mint and Rocket Money are useful, but they want your bank login and keep your financial

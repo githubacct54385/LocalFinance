@@ -55,6 +55,11 @@ for (let d = START; d <= END; d = addDays(d, 1)) {
   if (dom === 14) checking2.push({ d, desc: `PURCHASE AUTHORIZED ON ${mdy(d).slice(0, 5)} CITY WATER UTILITY`, amt: -Number(between(30, 55).toFixed(2)) });
   if (dom === 22 && rand() < 0.5) checking2.push({ d, desc: 'CHECK', amt: -Number(between(20, 90).toFixed(2)), check: String(300 + Math.floor(rand() * 90)) });
 
+  // local shops with names no keyword list knows (deterministic): these show off the Review screen
+  const mo = d.getUTCMonth();
+  if (dom === 4 && mo % 2 === 1) card.push({ d, desc: `ELM STREET HARDWARE #${12 + (mo % 3)}`, amt: -Number((18 + mo * 2.35).toFixed(2)) });
+  if (dom === 21 && [1, 4, 5, 9].includes(mo)) card.push({ d, desc: 'GREEN LEAF LAUNDRY 0042', amt: -Number((15 + mo * 1.15).toFixed(2)) });
+  if (dom === 27 && mo % 2 === 0) card.push({ d, desc: 'MAPLE LANE BOOKSHOP', amt: -Number((22 + mo * 1.8).toFixed(2)) });
   // credit card purchases
   if (dom === 3) card.push({ d, desc: 'NETFLIX.COM', amt: -15.49 });
   if (dom === 17) card.push({ d, desc: 'SPOTIFY USA', amt: -11.99 });
