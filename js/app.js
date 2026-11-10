@@ -16,6 +16,8 @@ const S = {
 };
 const $ = (sel) => document.querySelector(sel);
 const view = $('#view');
+const narrow = matchMedia('(max-width: 599px)'); // phone: draw charts at a smaller width so text stays legible
+narrow.addEventListener('change', () => { if (S.view === 'overview') render(); });
 
 /* ---------- data flow ---------- */
 
@@ -89,7 +91,7 @@ function periodSet() {
 }
 
 function prettyDesc(r) {
-  if (r.checkNo) return `Check #${r.checkNo}`;
+  if (r.isCheck) return r.checkNo ? `Check #${r.checkNo}` : 'Check';
   if (r.type === 'transfer') return r.link.kind === 'card-payment' ? 'Credit card payment' : 'Transfer between accounts';
   const d = r.description
     .replace(/^(PURCHASE|RECURRING PAYMENT)\s+(AUTHORIZED\s+)?ON\s+\d{1,2}\/\d{1,2}\s*/i, '')
@@ -143,14 +145,14 @@ function overview() {
       ${pending ? `<span class="tag pending">${pending} pending included</span>` : ''}
     </div>
     <section class="kpis" aria-label="Summary">
-      <div class="kpi"><div class="label">Income</div><div class="value">${fmtMoney(income)}</div></div>
-      <div class="kpi"><div class="label">Spending</div><div class="value">${fmtMoney(spending)}</div></div>
-      <div class="kpi"><div class="label">Net</div><div class="value ${net >= 0 ? 'pos' : 'neg'}">${fmtMoney(net, { sign: true })}</div></div>
+      <div class="kpi"><div class="label">Income</div><div class="value">${fmtMoney(income, { whole: true })}</div></div>
+      <div class="kpi"><div class="label">Spending</div><div class="value">${fmtMoney(spending, { whole: true })}</div></div>
+      <div class="kpi"><div class="label">Net</div><div class="value ${net >= 0 ? 'pos' : 'neg'}">${fmtMoney(net, { sign: true, whole: true })}</div></div>
     </section>
     <section class="card">
       <h2>Income vs. spending</h2>
       <div class="legend"><span><i class="l1"></i>Income</span><span><i class="l2"></i>Spending</span></div>
-      ${trendChart(trend)}
+      ${trendChart(trend, narrow.matches ? 360 : 640)}
       <details><summary>View as table</summary>
         <div class="scroll-x"><table class="t"><thead><tr><th>Month</th><th class="num">Income</th><th class="num">Spending</th></tr></thead><tbody>
         ${[...trend].reverse().map((m) => `<tr><td>${monthLong(m.month)}</td><td class="num">${fmtMoney(m.income)}</td><td class="num">${fmtMoney(m.spending)}</td></tr>`).join('')}
@@ -182,7 +184,7 @@ function filteredRows() {
     if (f.category && r.category !== f.category) return false;
     if (f.kind === 'spending' && r.type !== 'spending') return false;
     if (f.kind === 'income' && r.type !== 'income') return false;
-    if (f.kind === 'checks' && !r.checkNo) return false;
+    if (f.kind === 'checks' && !r.isCheck) return false;
     if (f.kind === 'transfers' && r.type !== 'transfer') return false;
     if (f.kind === 'pending' && r.status !== 'pending') return false;
     if (q && !(`${r.description} ${r.note} ${r.checkNo} ${r.category}`.toUpperCase().includes(q))) return false;
@@ -192,17 +194,17 @@ function filteredRows() {
 
 function txRow(r) {
   const amtCls = r.type === 'income' || r.type === 'refund' ? 'pos' : '';
-  const title = prettyDesc(r) + (r.checkNo && r.note ? ` · ${esc(r.note)}` : '');
+  const title = prettyDesc(r) + (r.isCheck && r.note ? ` · ${r.note}` : '');
   return `<li class="tx${r.type === 'transfer' ? ' dim' : ''}" data-action="open-tx" data-id="${esc(r.id)}" tabindex="0" role="button">
-    <span class="name">${r.checkNo ? esc(title) : esc(title)}</span>
+    <span class="name">${esc(title)}</span>
     <span class="amt ${amtCls}">${fmtMoney(r.amount, { sign: true })}</span>
     <span class="meta">
       <span>${fmtDate(r.date)}</span>
       <span class="tag">${esc(r.accountName)}</span>
-      ${r.checkNo ? '<span class="tag check">&#10003; Check</span>' : ''}
+      ${r.isCheck ? '<span class="tag check">&#10003; Check</span>' : ''}
       ${r.type === 'transfer' ? '<span class="tag transfer">not counted</span>' : `<span class="tag">${esc(r.category)}</span>`}
       ${r.status === 'pending' ? '<span class="tag pending">Pending</span>' : ''}
-      ${r.note && !r.checkNo ? `<span>${esc(r.note)}</span>` : ''}
+      ${r.note && !r.isCheck ? `<span>${esc(r.note)}</span>` : ''}
     </span>
   </li>`;
 }
@@ -244,8 +246,8 @@ function recurring() {
   const exp = S.recurring.filter((r) => r.kind === 'expense');
   const total = exp.filter((r) => r.active).reduce((s, r) => s + r.monthlyCost, 0);
   return `
-    <section class="kpis"><div class="kpi"><div class="label">Recurring per month</div><div class="value">${fmtMoney(total)}</div></div>
-    <div class="kpi"><div class="label">Per year</div><div class="value">${fmtMoney(total * 12)}</div></div>
+    <section class="kpis"><div class="kpi"><div class="label">Recurring per month</div><div class="value">${fmtMoney(total, { whole: true })}</div></div>
+    <div class="kpi"><div class="label">Per year</div><div class="value">${fmtMoney(total * 12, { whole: true })}</div></div>
     <div class="kpi"><div class="label">Active</div><div class="value">${exp.filter((r) => r.active).length}</div></div></section>
     ${section('Bills & subscriptions', exp.filter((r) => r.active), '"~" means the amount varies (like a utility bill).')}
     ${section('Recurring income', S.recurring.filter((r) => r.kind === 'income' && r.active), '')}
@@ -312,14 +314,14 @@ function openTx(id) {
   const r = S.rows.find((x) => x.id === id);
   if (!r) return;
   const dlg = $('#dlg');
-  const canRule = !r.checkNo && r.type !== 'transfer' && r.merchant !== 'UNKNOWN';
+  const canRule = !r.isCheck && r.type !== 'transfer' && r.merchant !== 'UNKNOWN';
   const cats = CATEGORIES.filter((c) => c !== 'Transfer');
   dlg.innerHTML = `<form id="txform" data-id="${esc(id)}">
     <h2>${esc(prettyDesc(r))}</h2>
     <p class="hint">${fmtDate(r.date)} · ${esc(r.accountName)} · ${fmtMoney(r.amount, { sign: true })}${r.status === 'pending' ? ' · Pending' : ''}<br>${esc(r.description)}</p>
     ${r.type === 'transfer' ? `<p>${r.link.kind === 'card-payment' ? 'Credit card payment' : 'Transfer between your accounts'}${r.link.pairedId ? ' (matched with its other side)' : ' (other side not imported)'}. Not counted as spending or income.</p>` : `
     <label>Category<select name="category"><option value="">Automatic (${esc(r.category)})</option>${cats.map((c) => `<option${r.category === c && S.txns.find((t) => t.id === id).category ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label>`}
-    <label>${r.checkNo ? 'Payee / memo for this check' : 'Note'}<input type="text" name="note" value="${esc(r.note)}" maxlength="80" placeholder="${r.checkNo ? 'e.g. Landlord' : ''}"></label>
+    <label>${r.isCheck ? 'Payee / memo for this check' : 'Note'}<input type="text" name="note" value="${esc(r.note)}" maxlength="80" placeholder="${r.isCheck ? 'e.g. Landlord' : ''}"></label>
     ${canRule ? `<label class="inline"><input type="checkbox" name="rule"> Always use this category for "${esc(titleCase(r.merchant))}"</label>` : ''}
     <div class="row between"><button type="button" class="btn secondary" data-action="close-dlg">Cancel</button><button class="btn" type="submit">Save</button></div>
   </form>`;
@@ -452,6 +454,7 @@ async function exportBackup() {
 async function restore(file) {
   try {
     const data = JSON.parse(await file.text());
+    store.validateBackup(data); // reject wrong files before asking to replace anything
     if (S.txns.length && !(await askConfirm('Replace the data currently on this device with this backup?', 'Replace'))) return;
     await store.importBackup(data);
     await load();

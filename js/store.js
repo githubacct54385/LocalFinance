@@ -85,10 +85,14 @@ export async function exportBackup() {
   };
 }
 
-export async function importBackup(data) {
+export function validateBackup(data) {
   if (data?.app !== 'localfinance' || !Array.isArray(data.accounts) || !Array.isArray(data.transactions)) {
     throw new Error('Not a LocalFinance backup file.');
   }
+}
+
+export async function importBackup(data) {
+  validateBackup(data);
   await clearAll();
   await putAll('accounts', data.accounts);
   await putAll('transactions', data.transactions);

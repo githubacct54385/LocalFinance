@@ -3,8 +3,10 @@
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 /** Format integer cents as money. Negative values use a real minus sign. */
-export function fmtMoney(cents, { sign = false } = {}) {
-  const s = usd.format(Math.abs(cents) / 100);
+const usdWhole = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+export function fmtMoney(cents, { sign = false, whole = false } = {}) {
+  const s = (whole ? usdWhole : usd).format(Math.abs(cents) / 100);
   if (cents < 0) return '−' + s;
   return sign && cents > 0 ? '+' + s : s;
 }

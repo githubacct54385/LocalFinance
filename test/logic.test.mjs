@@ -191,3 +191,36 @@ test('recurring detection finds subscriptions, paychecks, bills; ignores groceri
   assert.ok(!by(/TRADER JOES/), 'weekly variable groceries are not subscriptions');
   assert.ok(!rec.some((r) => r.merchant === 'CHECK'));
 });
+
+// ---- regressions found during manual testing ----
+const mk = (n, accountId, date, amount, description, extra = {}) =>
+  ({ id: `r${n}`, accountId, date, amount, description, checkNo: '', status: 'posted', key: `k${n}`, category: null, note: '', ...extra });
+
+test('inbound transfer with no imported counterpart is not income', () => {
+  const accounts = [{ id: 'chk', name: 'Checking', type: 'checking' }];
+  const [r] = enrich([mk(1, 'chk', '2026-10-05', 100000, 'ONLINE TRANSFER REF #1 FROM SAVINGS XXXXXX9999 ON 10/05/26')], accounts);
+  assert.equal(r.type, 'transfer');
+  assert.equal(r.income, 0);
+});
+
+test('card account mistakenly typed as checking still pairs its payments', () => {
+  const accounts = [{ id: 'chk', name: 'Checking', type: 'checking' }, { id: 'cc', name: 'Card', type: 'checking' }];
+  const rows = enrich([
+    mk(1, 'chk', '2026-10-28', -50000, 'ONLINE TRANSFER REF #1 TO WELLS FARGO CASH BACK VISA SIGNATURE CAR XXXXXXXXXXXX4242 ON 10/28/26'),
+    mk(2, 'cc', '2026-10-29', 50000, 'ONLINE PAYMENT THANK YOU'),
+  ], accounts);
+  assert.ok(rows.every((r) => r.type === 'transfer'));
+  assert.equal(rows.reduce((s, r) => s + r.income, 0), 0);
+});
+
+test('check with blank number column is still a check; "CHECK 1234" gets its number', () => {
+  const accounts = [{ id: 'chk', name: 'Checking', type: 'checking' }];
+  const [a, b] = enrich([
+    mk(1, 'chk', '2026-10-05', -45000, 'CHECK'),
+    mk(2, 'chk', '2026-10-06', -1000, 'CHECK # 1234'),
+  ], accounts);
+  assert.ok(a.isCheck && a.category === 'Checks' && a.checkNo === '');
+  assert.ok(b.isCheck && b.checkNo === '1234');
+  const [card] = enrich([mk(3, 'chk', '2026-10-07', -500, 'CHECKCARD 1234 COFFEE SHOP')], accounts);
+  assert.equal(card.isCheck, false);
+});

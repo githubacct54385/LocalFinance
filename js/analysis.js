@@ -16,14 +16,20 @@ export function enrich(txns, accounts, rules = []) {
   return txns.map((t) => {
     const a = acct.get(t.accountId);
     const link = links.get(t.id) ?? null;
+    // A check is a row with a check number, or a bare "CHECK" / "CHECK 1234" description.
+    const descCheck = /^CHECK(\s*#?\s*(\d+))?\s*$/i.exec(t.description);
+    const checkNo = t.checkNo || descCheck?.[2] || '';
+    const isCheck = !!(t.checkNo || descCheck);
     const type = link ? 'transfer'
       : t.amount > 0 ? (a?.type === 'credit' ? 'refund' : 'income')
       : 'spending';
     const auto = type === 'transfer' ? 'Transfer'
       : type === 'income' ? 'Income'
-      : categorize(t.description, rules, t.checkNo);
+      : categorize(t.description, rules, isCheck ? 'check' : '');
     return {
       ...t,
+      checkNo,
+      isCheck,
       accountName: a?.name ?? t.accountId,
       type,
       link,
@@ -71,7 +77,7 @@ export function categoryTotals(rows) {
 export function topMerchants(rows, n = 8) {
   const m = new Map();
   for (const r of rows) {
-    if (r.type !== 'spending' || r.checkNo) continue;
+    if (r.type !== 'spending' || r.isCheck) continue;
     const e = m.get(r.merchant) ?? { merchant: r.merchant, total: 0, count: 0 };
     e.total += r.spend;
     e.count++;

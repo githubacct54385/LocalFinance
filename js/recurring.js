@@ -24,7 +24,7 @@ const FREQS = [
 export function detectRecurring(rows, asOf) {
   const groups = new Map();
   for (const r of rows) {
-    if (r.checkNo || r.merchant === 'UNKNOWN') continue;
+    if (r.isCheck || r.checkNo || r.merchant === 'UNKNOWN') continue;
     const kind = r.type === 'spending' ? 'expense' : r.type === 'income' ? 'income' : null;
     if (!kind) continue;
     const k = `${kind}|${r.merchant}`;

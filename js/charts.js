@@ -11,8 +11,7 @@ const niceMax = (v) => {
 };
 
 /** Grouped bars per month: income (series 1) vs spending (series 2). Amounts are cents. */
-export function trendChart(data) {
-  const W = 640;
+export function trendChart(data, W = 640) {
   const H = 230;
   const pad = { l: 44, r: 8, t: 10, b: 26 };
   const iw = W - pad.l - pad.r;

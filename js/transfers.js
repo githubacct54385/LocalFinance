@@ -24,9 +24,12 @@ export function detectTransfers(txns, accounts) {
   const links = new Map();
   const taken = new Set();
 
+  // Positive rows anywhere can be the receiving side of a card payment, so a card account that
+  // was mistakenly typed as "Checking" still pairs up. Same-account matches are rejected below.
   const credits = txns.filter((t) => isCredit(t) && t.amount > 0);
   const byAmount = new Map();
-  for (const c of credits) {
+  for (const c of txns) {
+    if (c.amount <= 0) continue;
     if (!byAmount.has(c.amount)) byAmount.set(c.amount, []);
     byAmount.get(c.amount).push(c);
   }
@@ -48,7 +51,7 @@ export function detectTransfers(txns, accounts) {
   // 1. checking-side card payments
   for (const t of sorted) {
     if (isCredit(t) || t.amount >= 0 || !CARD_PAYMENT_RE.test(t.description)) continue;
-    const mate = nearest(byAmount.get(-t.amount), t, CARD_WINDOW_DAYS);
+    const mate = nearest(byAmount.get(-t.amount), t, CARD_WINDOW_DAYS, (c) => c.accountId !== t.accountId);
     taken.add(t.id);
     links.set(t.id, { kind: 'card-payment', pairedId: mate?.id ?? null });
     if (mate) {
@@ -80,6 +83,13 @@ export function detectTransfers(txns, accounts) {
     if (mate) {
       taken.add(mate.id);
       links.set(mate.id, { kind: 'transfer', pairedId: t.id });
+    }
+  }
+
+  // Inbound transfers whose other side isn't imported (e.g. from savings) are not income.
+  for (const t of txns) {
+    if (!taken.has(t.id) && !isCredit(t) && t.amount > 0 && /\bTRANSFER\b/i.test(t.description)) {
+      links.set(t.id, { kind: 'transfer', pairedId: null });
     }
   }
   return links;
