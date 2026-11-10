@@ -1,0 +1,12 @@
+{
+  "name": "localfinance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Private, local-first personal finance analyzer. No dependencies.",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "samples": "node scripts/make-samples.mjs",
+    "serve": "python3 -m http.server 8080"
+  }
+}

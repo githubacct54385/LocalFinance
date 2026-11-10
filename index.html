@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Privacy: the browser itself refuses any network request from this page (connect-src 'none'),
+       no third-party scripts/styles/fonts, no inline script or style. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#2a78d6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="LocalFinance">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <title>LocalFinance</title>
+</head>
+<body>
+  <header class="top">
+    <h1>LocalFinance</h1>
+    <span class="lock" title="All data stays in this browser">&#128274; On-device only</span>
+  </header>
+
+  <nav class="tabs" aria-label="Sections">
+    <button data-view="overview" class="tab">Overview</button>
+    <button data-view="transactions" class="tab">Activity</button>
+    <button data-view="recurring" class="tab">Recurring</button>
+    <button data-view="data" class="tab">Data</button>
+  </nav>
+
+  <main id="view" aria-live="polite"></main>
+
+  <dialog id="dlg"></dialog>
+  <div id="tip" class="tip" role="status" hidden></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <noscript>LocalFinance needs JavaScript to parse your files on this device.</noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
