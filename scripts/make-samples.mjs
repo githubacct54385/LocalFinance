@@ -35,7 +35,7 @@ for (let d = START; d <= END; d = addDays(d, 1)) {
   // a small monthly check (say, a babysitter), numbered #1001 upward. Deterministic amounts 45-119.
   if (dom === 15) checking.push({ d, desc: 'CHECK', amt: -(45 + ((d.getUTCMonth() * 17) % 75)), check: String(1001 + checking.filter((x) => x.check).length) });
   // monthly brokerage contribution + a couple of Zelle payments (deterministic, no randomness)
-  if (dom === 12) checking.push({ d, desc: `ONLINE TRANSFER REF #IB0${(dom * 7919 + d.getUTCMonth() * 104729) % 1e8} TO SCHWAB BROKERAGE MONEYLINK ON ${mdy2(d)}`, amt: -300 });
+  if (dom === 12) checking.push({ d, desc: `ONLINE TRANSFER REF #IB0${(dom * 7919 + d.getUTCMonth() * 104729) % 1e8} TO EVERGREEN BROKERAGE ON ${mdy2(d)}`, amt: -300 });
   if (dom === 9) checking.push({ d, desc: `ZELLE FROM A FRIEND ON ${mdy2(d)} REF #${dom}XK${d.getUTCMonth()}`, amt: 45 });
   if (dom === 18) checking.push({ d, desc: `ZELLE TO A NEIGHBOR ON ${mdy2(d)} REF #${dom}QZ${d.getUTCMonth()}`, amt: -75 });
   // internet + electric

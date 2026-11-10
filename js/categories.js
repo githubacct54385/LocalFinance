@@ -9,7 +9,7 @@ export const CATEGORIES = [
   'Investments', 'Income', 'Transfer', 'Uncategorized',
 ];
 
-// Order matters: first match wins. Investments goes first so "TRANSFER TO SCHWAB" is not
+// Order matters: first match wins. Investments goes first so "TRANSFER TO <brokerage>" is not
 // mistaken for a plain transfer.
 const DEFAULT_RULES = [
   ['Investments', ['SCHWAB', 'FIDELITY', 'VANGUARD', 'ROBINHOOD', 'ACORNS', 'COINBASE', 'WEALTHFRONT', 'BETTERMENT',
@@ -71,7 +71,7 @@ export function normalizeMerchant(desc) {
   s = s.replace(/\b[A-Z]*\d[A-Z\d]{3,}\b/g, ' ');
   s = s.replace(/\b\d+\b/g, ' ');
   s = s.replace(/[^A-Z&' ]/g, ' ').replace(/\s+/g, ' ').trim();
-  // "ONLINE TRANSFER TO SCHWAB ..." -> "SCHWAB ...": drop the generic bank boilerplate
+  // "ONLINE TRANSFER TO ACME BANK ..." -> "ACME BANK ...": drop the generic bank boilerplate
   s = s.replace(/^(ONLINE|MOBILE|RECURRING|AUTOMATIC|SCHEDULED)\s+(TRANSFER|PAYMENT)\s+(TO\s+|FROM\s+)?/, '');
   s = s.replace(/\s+ON$/, '');
   return s.split(' ').slice(0, 3).join(' ').replace(/\s*&$/, '').trim() || 'UNKNOWN';

@@ -40,7 +40,7 @@ The samples are generated, fake data (see [`scripts/make-samples.mjs`](scripts/m
 - **No double-counting**: credit card payments and transfers between your own accounts are detected and
   excluded, so paying your card doesn't count as spending twice
 - **Checks** shown as "Check #1234", with an optional payee memo you add on-device
-- **Investments** (Schwab, Fidelity, and others) tracked as "Invested", not spending
+- **Investments** (brokerage transfers) tracked as "Invested", not spending
 - **Zelle** treated as a transfer (received or sent by sign), with per-payment override
 - **Recurring detection**: subscriptions, utility bills, paychecks, and recurring investing
 - **Fast categorizing**: a Review screen walks you through uncategorized transactions one merchant at a time;
