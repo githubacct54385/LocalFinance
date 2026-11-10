@@ -30,6 +30,23 @@ analytics, and no third-party code.
 - Category rules you can edit (stored in the browser, not in this repo)
 - Backup and restore to a JSON file you control
 
+## Move your data between devices
+
+Each device keeps its own copy, but a backup carries everything: accounts, transactions,
+your categories, check memos, notes, and rules.
+
+1. On the device with your latest work: **Data > Save backup**.
+2. Send the `localfinance-backup-*.json` file to the other device (iCloud Drive or AirDrop).
+3. On the other device: **Data > Restore backup**, then choose the file.
+
+Notes:
+- Restore **replaces** everything on the device you restore into. It does not merge, so move data
+  one direction at a time (desktop to phone, or phone to desktop).
+- On iPhone, Safari and the Home Screen app store data separately. Restore into the one you use.
+- If Save backup does nothing in the Home Screen app, open the site in Safari and save from there.
+- A backup contains your transactions. Delete it when you are done; never commit it
+  (`.gitignore` blocks `*backup*.json`).
+
 ## Run locally
 
 ```bash

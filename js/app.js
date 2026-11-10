@@ -315,6 +315,15 @@ function dataView() {
       <label class="btn secondary file-btn">Restore backup<input id="restore-input" type="file" accept=".json,application/json"></label></p>
       <p class="hint">Backups contain your transactions. Keep them out of any Git repository (the .gitignore already blocks them).</p>
     </section>
+    <section class="card"><h2>Move your data to another device</h2>
+      <p>Categories, rules, check memos and notes all travel with a backup, so you don't have to re-import or recategorize.</p>
+      <ol class="steps">
+        <li>On the device with your latest work, tap <b>Save backup</b> above.</li>
+        <li>Send the file to the other device (iCloud Drive or AirDrop).</li>
+        <li>On the other device, open this app, go to Data, tap <b>Restore backup</b>, and choose the file.</li>
+      </ol>
+      <p class="hint"><b>Restore replaces</b> everything on that device, so move data one direction at a time. On iPhone, Safari and the Home Screen app keep separate data: restore into the one you use. If Save backup does nothing in the Home Screen app, open the site in Safari and save from there. Delete the backup file afterwards, since it contains your transactions.</p>
+    </section>
     <section class="card"><h2>Delete everything</h2>
       <p class="hint">Removes all accounts, transactions and rules from this device.</p>
       <p><button class="btn danger" data-action="wipe">Delete all data</button></p></section>`;
