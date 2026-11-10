@@ -9,12 +9,15 @@
 // 2. Transfers between checking accounts: opposite equal amounts, description mentions
 //    TRANSFER, within a few days.
 //
-// Returns Map<txnId, {kind: 'card-payment'|'transfer', pairedId: string|null}>.
+// 3. Zelle payments (any direction) are transfers.
+//
+// Returns Map<txnId, {kind: 'card-payment'|'transfer'|'zelle', pairedId: string|null}>.
 
 import { isoToDays } from './util.js';
 
 export const CARD_PAYMENT_RE = /\b(TRANSFER|PAYMENT|PMT)\b.*\bWELLS FARGO\b.*\b(VISA|CARD|CREDIT|MASTERCARD)\b/i;
 export const CARD_RECEIVED_RE = /\b(PAYMENT|PMT)\b.*\b(THANK YOU|RECEIVED)\b|^(ONLINE|MOBILE|AUTOMATIC)?\s*PAYMENT\b/i;
+export const ZELLE_RE = /\bZELLE\b/i;
 const CARD_WINDOW_DAYS = 7;
 const TRANSFER_WINDOW_DAYS = 3;
 
@@ -48,9 +51,18 @@ export function detectTransfers(txns, accounts) {
 
   const sorted = [...txns].sort((a, b) => a.date.localeCompare(b.date));
 
+  // 0. Zelle: always a transfer. Positive = sent to you, negative = sent to someone else.
+  //    (Re-categorize an individual Zelle payment if it is really spending or income.)
+  for (const t of txns) {
+    if (!isCredit(t) && ZELLE_RE.test(t.description)) {
+      taken.add(t.id);
+      links.set(t.id, { kind: 'zelle', pairedId: null });
+    }
+  }
+
   // 1. checking-side card payments
   for (const t of sorted) {
-    if (isCredit(t) || t.amount >= 0 || !CARD_PAYMENT_RE.test(t.description)) continue;
+    if (taken.has(t.id) || isCredit(t) || t.amount >= 0 || !CARD_PAYMENT_RE.test(t.description)) continue;
     const mate = nearest(byAmount.get(-t.amount), t, CARD_WINDOW_DAYS, (c) => c.accountId !== t.accountId);
     taken.add(t.id);
     links.set(t.id, { kind: 'card-payment', pairedId: mate?.id ?? null });

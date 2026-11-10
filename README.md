@@ -24,6 +24,9 @@ analytics, and no third-party code.
 - Checks shown as "Check #1234" with an optional payee/memo you add on-device
 - Pending transactions are included and refreshed when re-imported; duplicates are skipped
 - Recurring bills, subscriptions, and income detection
+- Investments: brokerage transfers (Schwab, Fidelity, Vanguard, ...) are counted as "Invested", not spending
+- Zelle is always treated as a transfer (positive = received, negative = sent); re-categorize any single payment by hand
+- Review screen: categorize uncategorized transactions one merchant at a time (one tap covers every matching transaction and future imports)
 - Category rules you can edit (stored in the browser, not in this repo)
 - Backup and restore to a JSON file you control
 

@@ -5,7 +5,7 @@ import { parseCsv } from '../js/csv.js';
 import { parseStatement, parseAmount, parseDate, guessAccountType } from '../js/wf.js';
 import { mergeImport } from '../js/import.js';
 import { detectTransfers } from '../js/transfers.js';
-import { normalizeMerchant, categorize } from '../js/categories.js';
+import { normalizeMerchant, categorize, merchantGroup } from '../js/categories.js';
 import { enrich, monthlySummary, categoryTotals, lastMonths } from '../js/analysis.js';
 import { detectRecurring } from '../js/recurring.js';
 import { slug } from '../js/util.js';
@@ -223,4 +223,83 @@ test('check with blank number column is still a check; "CHECK 1234" gets its num
   assert.ok(b.isCheck && b.checkNo === '1234');
   const [card] = enrich([mk(3, 'chk', '2026-10-07', -500, 'CHECKCARD 1234 COFFEE SHOP')], accounts);
   assert.equal(card.isCheck, false);
+});
+
+// ---- Investments, Zelle, rules ----
+const CHECKING_ONLY = [{ id: 'chk', name: 'Checking', type: 'checking' }];
+
+test('Schwab money link is an investment, not spending or a plain transfer', () => {
+  const [out, back, other] = enrich([
+    mk(1, 'chk', '2026-10-12', -30000, 'ONLINE TRANSFER REF #IB01037589 TO SCHWAB BROKERAGE MONEYLINK ON 10/12/26'),
+    mk(2, 'chk', '2026-10-20', 10000, 'SCHWAB BROKERAGE MONEYLINK 4821'),
+    mk(3, 'chk', '2026-10-21', -5000, 'FIDELITY INVESTMENTS'),
+  ], CHECKING_ONLY);
+  assert.equal(out.type, 'investment');
+  assert.equal(out.category, 'Investments');
+  assert.equal(out.invested, 30000);
+  assert.equal(out.spend, 0);
+  assert.equal(back.type, 'investment');
+  assert.equal(back.invested, -10000); // a withdrawal from the brokerage reduces "invested"
+  assert.equal(back.income, 0);
+  assert.equal(other.type, 'investment');
+});
+
+test('investments are excluded from spending and counted in the monthly summary', () => {
+  const rows = enrich([
+    mk(1, 'chk', '2026-10-12', -30000, 'ONLINE TRANSFER TO SCHWAB BROKERAGE MONEYLINK'),
+    mk(2, 'chk', '2026-10-13', -1000, 'CORNER CAFE'),
+    mk(3, 'chk', '2026-10-01', 500000, 'ACME PAYROLL'),
+  ], CHECKING_ONLY);
+  const [m] = monthlySummary(rows, ['2026-10']);
+  assert.deepEqual([m.income, m.spending, m.invested], [500000, 1000, 30000]);
+});
+
+test('Zelle is always a transfer; direction comes from the sign', () => {
+  const [from, to] = enrich([
+    mk(1, 'chk', '2026-10-09', 4500, 'ZELLE FROM A FRIEND ON 10/09/26 REF #9XK9'),
+    mk(2, 'chk', '2026-10-18', -7500, 'ZELLE TO A NEIGHBOR ON 10/18/26 REF #18QZ9'),
+  ], CHECKING_ONLY);
+  assert.equal(from.type, 'transfer');
+  assert.equal(from.link.kind, 'zelle');
+  assert.equal(from.income, 0);
+  assert.equal(to.type, 'transfer');
+  assert.equal(to.spend, 0);
+});
+
+test('a category set by hand overrides automatic transfer detection', () => {
+  const [z, t] = enrich([
+    mk(1, 'chk', '2026-10-18', -120000, 'ZELLE TO LANDLORD ON 10/18/26', { category: 'Housing' }),
+    mk(2, 'chk', '2026-10-19', -2000, 'GIFT SHOP', { category: 'Transfer' }),
+  ], CHECKING_ONLY);
+  assert.equal(z.type, 'spending');
+  assert.equal(z.spend, 120000);
+  assert.equal(t.type, 'transfer');
+  assert.equal(t.spend, 0);
+});
+
+test('prefix rules match the merchant group, not other merchants', () => {
+  const rules = [{ match: 'JOES PIZZA', category: 'Dining', mode: 'prefix' }];
+  assert.equal(categorize('JOES PIZZA 5658', rules), 'Dining');
+  assert.equal(categorize('JOES PIZZA DOWNTOWN #22', rules), 'Dining');
+  assert.equal(categorize('JOESEPH SUPPLY CO', [{ match: 'JOES', category: 'Dining', mode: 'prefix' }]), 'Uncategorized'); // whole-word prefix only
+  assert.equal(merchantGroup('TRADER JOES ANYTOWN'), 'TRADER JOES');
+  assert.equal(merchantGroup('WALGREENS'), 'WALGREENS');
+});
+
+test('bank boilerplate is stripped so transfers group by destination', () => {
+  assert.equal(normalizeMerchant('ONLINE TRANSFER REF #IB01037589 TO SCHWAB BROKERAGE MONEYLINK ON 10/12/26'), 'SCHWAB BROKERAGE MONEYLINK');
+  assert.equal(normalizeMerchant('ONLINE PAYMENT THANK YOU'), 'THANK YOU');
+});
+
+test('recurring brokerage contributions are detected as investing, Zelle is not', () => {
+  const { accounts, txns } = loadSamples();
+  const rows = enrich(txns, accounts);
+  const rec = detectRecurring(rows, '2026-11-09');
+  const inv = rec.find((r) => r.kind === 'investment');
+  assert.ok(inv, 'monthly Schwab contribution found');
+  assert.equal(inv.frequency, 'Monthly');
+  assert.equal(inv.typicalAmount, 30000);
+  assert.ok(!rec.some((r) => /ZELLE/.test(r.merchant)));
+  assert.equal(rows.filter((r) => /ZELLE/.test(r.description)).every((r) => r.type === 'transfer'), true);
+  assert.equal(rows.filter((r) => /SCHWAB/.test(r.description)).every((r) => r.type === 'investment'), true);
 });

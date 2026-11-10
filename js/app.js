@@ -5,13 +5,13 @@ import { parseStatement, guessAccountType } from './wf.js';
 import { mergeImport } from './import.js';
 import { enrich, monthsPresent, lastMonths, monthlySummary, categoryTotals, topMerchants } from './analysis.js';
 import { detectRecurring } from './recurring.js';
-import { CATEGORIES } from './categories.js';
+import { CATEGORIES, merchantGroup } from './categories.js';
 import { trendChart, barList } from './charts.js';
 import { esc, fmtMoney, fmtDate, monthLong, titleCase, slug, monthOf, uuid } from './util.js';
 
 const S = {
   accounts: [], txns: [], rules: [], rows: [], months: [], latest: '', recurring: [],
-  view: 'overview', period: '', results: [], persistent: true,
+  view: 'overview', period: '', results: [], persistent: true, skipped: new Set(), reviewStack: [], focusKey: '',
   filter: { q: '', account: '', category: '', kind: 'all', limit: 100 },
 };
 const $ = (sel) => document.querySelector(sel);
@@ -92,14 +92,31 @@ function periodSet() {
 
 function prettyDesc(r) {
   if (r.isCheck) return r.checkNo ? `Check #${r.checkNo}` : 'Check';
-  if (r.type === 'transfer') return r.link.kind === 'card-payment' ? 'Credit card payment' : 'Transfer between accounts';
+  if (r.type === 'transfer') {
+    const kind = r.link?.kind;
+    if (kind === 'card-payment') return 'Credit card payment';
+    if (kind === 'zelle') return r.amount > 0 ? 'Zelle received' : 'Zelle sent';
+    return 'Transfer between accounts';
+  }
+  if (r.type === 'investment') return titleCase(r.merchant);
   const d = r.description
     .replace(/^(PURCHASE|RECURRING PAYMENT)\s+(AUTHORIZED\s+)?ON\s+\d{1,2}\/\d{1,2}\s*/i, '')
-    .replace(/\s+S\d{9,}.*$/i, '');
+    .replace(/\s+S\d{9,}.*$/i, '')
+    .replace(/\s+REF\s*#?\s*\w+/gi, '')
+    .replace(/\s+ON\s+\d{1,2}\/\d{1,2}(\/\d{2,4})?\s*$/i, '');
   return titleCase(d).slice(0, 64) || 'Transaction';
 }
 
 const sumBy = (rows, k) => rows.reduce((s, r) => s + r[k], 0);
+
+const needsCategory = (r) => r.category === 'Uncategorized' && (r.type === 'spending' || r.type === 'refund');
+
+function reviewBanner() {
+  const n = S.rows.filter(needsCategory).length;
+  if (!n) return '';
+  return `<div class="banner row between"><span>${n} transaction${n === 1 ? '' : 's'} need a category.</span>
+    <button class="btn small" data-view="review">Review</button></div>`;
+}
 
 /* ---------- views ---------- */
 
@@ -118,7 +135,8 @@ function overview() {
   const rows = S.rows.filter((r) => set.has(monthOf(r.date)));
   const income = sumBy(rows, 'income');
   const spending = sumBy(rows, 'spend');
-  const net = income - spending;
+  const invested = sumBy(rows, 'invested');
+  const net = income - spending - invested;
   const latest = S.months[S.months.length - 1];
   const span = Math.min(12, (+latest.slice(0, 4) - +S.months[0].slice(0, 4)) * 12 + (+latest.slice(5) - +S.months[0].slice(5)) + 1);
   const trend = monthlySummary(S.rows, lastMonths(latest, span));
@@ -144,26 +162,28 @@ function overview() {
       <label class="row">Period <select id="period" aria-label="Period">${opts}</select></label>
       ${pending ? `<span class="tag pending">${pending} pending included</span>` : ''}
     </div>
-    <section class="kpis" aria-label="Summary">
+    ${reviewBanner()}
+    <section class="kpis four" aria-label="Summary">
       <div class="kpi"><div class="label">Income</div><div class="value">${fmtMoney(income, { whole: true })}</div></div>
       <div class="kpi"><div class="label">Spending</div><div class="value">${fmtMoney(spending, { whole: true })}</div></div>
-      <div class="kpi"><div class="label">Net</div><div class="value ${net >= 0 ? 'pos' : 'neg'}">${fmtMoney(net, { sign: true, whole: true })}</div></div>
+      <div class="kpi"><div class="label">Invested</div><div class="value">${fmtMoney(invested, { whole: true })}</div></div>
+      <div class="kpi"><div class="label">Left over</div><div class="value ${net >= 0 ? 'pos' : 'neg'}">${fmtMoney(net, { sign: true, whole: true })}</div></div>
     </section>
     <section class="card">
       <h2>Income vs. spending</h2>
       <div class="legend"><span><i class="l1"></i>Income</span><span><i class="l2"></i>Spending</span></div>
       ${trendChart(trend, narrow.matches ? 360 : 640)}
       <details><summary>View as table</summary>
-        <div class="scroll-x"><table class="t"><thead><tr><th>Month</th><th class="num">Income</th><th class="num">Spending</th></tr></thead><tbody>
-        ${[...trend].reverse().map((m) => `<tr><td>${monthLong(m.month)}</td><td class="num">${fmtMoney(m.income)}</td><td class="num">${fmtMoney(m.spending)}</td></tr>`).join('')}
+        <div class="scroll-x"><table class="t"><thead><tr><th>Month</th><th class="num">Income</th><th class="num">Spending</th><th class="num">Invested</th></tr></thead><tbody>
+        ${[...trend].reverse().map((m) => `<tr><td>${monthLong(m.month)}</td><td class="num">${fmtMoney(m.income)}</td><td class="num">${fmtMoney(m.spending)}</td><td class="num">${fmtMoney(m.invested)}</td></tr>`).join('')}
         </tbody></table></div>
       </details>
-      <p class="hint">Credit card payments and transfers between your accounts are excluded, so nothing is counted twice.</p>
+      <p class="hint">Credit card payments, Zelle, and transfers between your accounts are not counted, so nothing is counted twice. Money moved to investments is shown separately and is not spending.</p>
     </section>
     <section class="card">
       <h2>Spending by category</h2>
       ${catItems.length ? barList(catItems) : '<p class="hint">No spending in this period.</p>'}
-      ${unc > spending * 0.15 && unc > 0 ? '<p class="hint">Much of this is Uncategorized. Tap a transaction in Activity to set its category, and tick "always" to remember it.</p>' : ''}
+      ${unc > spending * 0.15 && unc > 0 ? '<p class="hint">Much of this is Uncategorized. <button class="btn small" data-view="review">Review by merchant</button></p>' : ''}
     </section>
     <section class="card">
       <h2>Top merchants</h2>
@@ -184,6 +204,7 @@ function filteredRows() {
     if (f.category && r.category !== f.category) return false;
     if (f.kind === 'spending' && r.type !== 'spending') return false;
     if (f.kind === 'income' && r.type !== 'income') return false;
+    if (f.kind === 'investments' && r.type !== 'investment') return false;
     if (f.kind === 'checks' && !r.isCheck) return false;
     if (f.kind === 'transfers' && r.type !== 'transfer') return false;
     if (f.kind === 'pending' && r.status !== 'pending') return false;
@@ -202,7 +223,7 @@ function txRow(r) {
       <span>${fmtDate(r.date)}</span>
       <span class="tag">${esc(r.accountName)}</span>
       ${r.isCheck ? '<span class="tag check">&#10003; Check</span>' : ''}
-      ${r.type === 'transfer' ? '<span class="tag transfer">not counted</span>' : `<span class="tag">${esc(r.category)}</span>`}
+      ${r.type === 'transfer' ? `<span class="tag transfer">${r.link?.kind === 'zelle' ? (r.amount > 0 ? 'Zelle in' : 'Zelle out') + ' · ' : ''}not counted</span>` : `<span class="tag${r.type === 'investment' ? ' invest' : ''}">${esc(r.category)}</span>`}
       ${r.status === 'pending' ? '<span class="tag pending">Pending</span>' : ''}
       ${r.note && !r.isCheck ? `<span>${esc(r.note)}</span>` : ''}
     </span>
@@ -220,9 +241,9 @@ function txList() {
 function transactions() {
   if (!S.rows.length) return emptyState();
   const f = S.filter;
-  const kinds = [['all', 'All'], ['spending', 'Spending'], ['income', 'Income'], ['checks', 'Checks'], ['transfers', 'Transfers'], ['pending', 'Pending']];
+  const kinds = [['all', 'All'], ['spending', 'Spending'], ['income', 'Income'], ['investments', 'Investments'], ['checks', 'Checks'], ['transfers', 'Transfers'], ['pending', 'Pending']];
   const opt = (v, l, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`;
-  return `<section class="card">
+  return `${reviewBanner()}<section class="card">
     <div class="row">
       <input id="q" type="search" placeholder="Search" value="${esc(f.q)}" aria-label="Search">
       <select id="f-kind" aria-label="Type">${kinds.map(([v, l]) => opt(v, l, f.kind)).join('')}</select>
@@ -246,11 +267,12 @@ function recurring() {
   const exp = S.recurring.filter((r) => r.kind === 'expense');
   const total = exp.filter((r) => r.active).reduce((s, r) => s + r.monthlyCost, 0);
   return `
-    <section class="kpis"><div class="kpi"><div class="label">Recurring per month</div><div class="value">${fmtMoney(total, { whole: true })}</div></div>
+    <section class="kpis"><div class="kpi"><div class="label">Per month</div><div class="value">${fmtMoney(total, { whole: true })}</div></div>
     <div class="kpi"><div class="label">Per year</div><div class="value">${fmtMoney(total * 12, { whole: true })}</div></div>
     <div class="kpi"><div class="label">Active</div><div class="value">${exp.filter((r) => r.active).length}</div></div></section>
     ${section('Bills & subscriptions', exp.filter((r) => r.active), '"~" means the amount varies (like a utility bill).')}
     ${section('Recurring income', S.recurring.filter((r) => r.kind === 'income' && r.active), '')}
+    ${section('Recurring investing', S.recurring.filter((r) => r.kind === 'investment' && r.active), 'Not counted as spending.')}
     ${section('Seems to have stopped', S.recurring.filter((r) => !r.active), '')}
     ${S.recurring.length ? '' : '<section class="card empty"><p>No recurring payments found yet. Detection needs at least 3 occurrences, so import more history (up to 25 months) for better results.</p></section>'}
     <p class="hint">Checks are not included because they have no merchant name.</p>`;
@@ -298,14 +320,79 @@ function dataView() {
       <p><button class="btn danger" data-action="wipe">Delete all data</button></p></section>`;
 }
 
-const VIEWS = { overview, transactions, recurring, data: dataView };
+const VIEWS = { overview, transactions, recurring, review, data: dataView };
 
 function render() {
   document.querySelectorAll('.tab').forEach((b) => {
-    if (b.dataset.view === S.view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    const current = S.view === 'review' ? 'transactions' : S.view; // Review lives under Activity
+    if (b.dataset.view === current) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
   view.innerHTML = VIEWS[S.view]();
   hideTip();
+}
+
+/* ---------- review by merchant ---------- */
+
+function reviewGroups() {
+  const m = new Map();
+  for (const r of S.rows) {
+    if (!needsCategory(r)) continue;
+    const key = merchantGroup(r.merchant);
+    if (key === 'UNKNOWN') continue;
+    const g = m.get(key) ?? { key, rows: [], total: 0 };
+    g.rows.push(r);
+    g.total += r.spend;
+    m.set(key, g);
+  }
+  return [...m.values()].sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+}
+
+/** Most common category among already-categorized merchants that share the first word. */
+function suggestFor(key) {
+  const first = key.split(' ')[0];
+  if (first.length < 3) return '';
+  const counts = new Map();
+  for (const r of S.rows) {
+    if (r.category === 'Uncategorized' || r.type === 'income') continue;
+    if (merchantGroup(r.merchant).split(' ')[0] === first) counts.set(r.category, (counts.get(r.category) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+}
+
+function review() {
+  if (!S.rows.length) return emptyState();
+  const all = reviewGroups();
+  const todo = all.filter((g) => !S.skipped.has(g.key));
+  const fi = todo.findIndex((g) => g.key === S.focusKey); // after Undo, show that merchant again first
+  if (fi > 0) todo.unshift(...todo.splice(fi, 1));
+  const left = all.reduce((s, g) => s + g.rows.length, 0);
+  const undo = S.reviewStack.length ? '<button class="btn secondary small" data-action="review-undo">Undo last</button>' : '';
+  const head = `<div class="row between"><button class="btn secondary small" data-view="transactions">← Activity</button>${undo}</div>`;
+  if (!all.length) return `${head}<section class="card empty"><h2>All caught up</h2><p>Every transaction has a category.</p></section>`;
+  if (!todo.length) {
+    return `${head}<section class="card empty"><h2>${all.length} skipped</h2><p>${left} transactions still need a category.</p>
+      <button class="btn" data-action="review-unskip">Review the skipped ones</button></section>`;
+  }
+  const g = todo[0];
+  const sug = suggestFor(g.key);
+  const n = g.rows.length;
+  const cats = CATEGORIES.filter((c) => c !== 'Uncategorized' && c !== 'Checks');
+  return `${head}<section class="card review" data-key="${esc(g.key)}">
+    <p class="hint">${todo.length} merchant${todo.length === 1 ? '' : 's'} left · ${left} transactions</p>
+    <h2 class="rname">${esc(titleCase(g.key))}</h2>
+    <p><b>${n}</b> transaction${n === 1 ? '' : 's'} · <b>${fmtMoney(g.total)}</b> · ${fmtDate(g.rows[n - 1].date)} to ${fmtDate(g.rows[0].date)}</p>
+    <ul class="list compact">${g.rows.slice(0, 4).map((r) => `<li><span>${esc(prettyDesc(r))}</span><span>${fmtMoney(r.amount)}</span></li>`).join('')}</ul>
+    <div class="cats">${cats.map((c) => `<button class="btn secondary cat${c === sug ? ' suggest' : ''}" data-action="review-pick" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    <p class="row between"><button class="btn secondary" data-action="review-skip">Skip</button>
+      <span class="hint">${sug ? `Suggested: ${esc(sug)}` : 'Applies to all of them and to future imports'}</span></p>
+  </section>`;
+}
+
+async function setRule(match, category) {
+  const prev = S.rules.find((r) => r.match === match && r.mode === 'prefix') ?? null;
+  S.rules = S.rules.filter((r) => r !== prev).concat({ match, category, mode: 'prefix' });
+  await store.setMeta('rules', S.rules);
+  return prev;
 }
 
 /* ---------- edit dialog ---------- */
@@ -314,15 +401,25 @@ function openTx(id) {
   const r = S.rows.find((x) => x.id === id);
   if (!r) return;
   const dlg = $('#dlg');
+  const manual = S.txns.find((t) => t.id === id).category;
   const canRule = !r.isCheck && r.type !== 'transfer' && r.merchant !== 'UNKNOWN';
-  const cats = CATEGORIES.filter((c) => c !== 'Transfer');
+  const cats = CATEGORIES.filter((c) => c !== 'Uncategorized');
+  let info = '';
+  if (r.type === 'transfer') {
+    const kind = r.link?.kind;
+    info = kind === 'zelle'
+      ? `<p>Zelle ${r.amount > 0 ? 'received (sent to you)' : 'sent (to someone else)'}. Zelle is treated as a transfer and is not counted as income or spending. Pick a category below if this one really is.</p>`
+      : kind === 'card-payment'
+        ? '<p>Credit card payment. Not counted, because the purchases it pays for are counted on the card.</p>'
+        : `<p>Transfer between accounts${r.link?.pairedId ? ' (matched with its other side)' : ' (other side not imported)'}. Not counted as spending or income.</p>`;
+  } else if (r.type === 'investment') info = '<p>Counted as invested money, not as spending.</p>';
   dlg.innerHTML = `<form id="txform" data-id="${esc(id)}">
     <h2>${esc(prettyDesc(r))}</h2>
     <p class="hint">${fmtDate(r.date)} · ${esc(r.accountName)} · ${fmtMoney(r.amount, { sign: true })}${r.status === 'pending' ? ' · Pending' : ''}<br>${esc(r.description)}</p>
-    ${r.type === 'transfer' ? `<p>${r.link.kind === 'card-payment' ? 'Credit card payment' : 'Transfer between your accounts'}${r.link.pairedId ? ' (matched with its other side)' : ' (other side not imported)'}. Not counted as spending or income.</p>` : `
-    <label>Category<select name="category"><option value="">Automatic (${esc(r.category)})</option>${cats.map((c) => `<option${r.category === c && S.txns.find((t) => t.id === id).category ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label>`}
+    ${info}
+    <label>Category<select name="category"><option value="">Automatic (${esc(r.category)})</option>${cats.map((c) => `<option${manual === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
     <label>${r.isCheck ? 'Payee / memo for this check' : 'Note'}<input type="text" name="note" value="${esc(r.note)}" maxlength="80" placeholder="${r.isCheck ? 'e.g. Landlord' : ''}"></label>
-    ${canRule ? `<label class="inline"><input type="checkbox" name="rule"> Always use this category for "${esc(titleCase(r.merchant))}"</label>` : ''}
+    ${canRule ? `<label class="inline"><input type="checkbox" name="rule"> Always use this category for "${esc(titleCase(merchantGroup(r.merchant)))}"</label>` : ''}
     <div class="row between"><button type="button" class="btn secondary" data-action="close-dlg">Cancel</button><button class="btn" type="submit">Save</button></div>
   </form>`;
   dlg.showModal();
@@ -331,15 +428,14 @@ function openTx(id) {
 async function submitTx(form) {
   const id = form.dataset.id;
   const fd = new FormData(form);
-  const t = S.txns.find((x) => x.id === id);
-  const category = fd.has('category') ? (fd.get('category') || null) : t.category;
+  const category = fd.get('category') || null;
+  const note = String(fd.get('note') || '').trim();
   const row = S.rows.find((x) => x.id === id);
   if (fd.get('rule') && category) {
-    S.rules = S.rules.filter((r) => r.match !== row.merchant).concat({ match: row.merchant, category });
-    await store.setMeta('rules', S.rules);
-    await saveTxn(id, { category: null, note: String(fd.get('note') || '').trim() });
+    await setRule(merchantGroup(row.merchant), category);
+    await saveTxn(id, { category: null, note });
   } else {
-    await saveTxn(id, { category, note: String(fd.get('note') || '').trim() });
+    await saveTxn(id, { category, note });
   }
   $('#dlg').close();
   recompute();
@@ -394,6 +490,24 @@ document.addEventListener('click', async (e) => {
   else if (act === 'close-dlg') $('#dlg').close();
   else if (act === 'more') { S.filter.limit += 100; $('#txlist').innerHTML = txList(); }
   else if (act === 'export') exportBackup();
+  else if (act === 'review-pick') {
+    const key = a.closest('[data-key]').dataset.key;
+    const prev = await setRule(key, a.dataset.cat);
+    S.focusKey = '';
+    S.reviewStack.push({ key, prev });
+    recompute(); render(); window.scrollTo(0, 0);
+  } else if (act === 'review-skip') {
+    S.skipped.add(a.closest('[data-key]').dataset.key);
+    render(); window.scrollTo(0, 0);
+  } else if (act === 'review-unskip') { S.skipped.clear(); render(); }
+  else if (act === 'review-undo') {
+    const { key, prev } = S.reviewStack.pop();
+    S.rules = S.rules.filter((r) => !(r.match === key && r.mode === 'prefix'));
+    if (prev) S.rules.push(prev);
+    await store.setMeta('rules', S.rules);
+    S.focusKey = key; S.skipped.delete(key);
+    recompute(); render(); window.scrollTo(0, 0);
+  }
   else if (act === 'del-rule') {
     S.rules.splice(+a.dataset.i, 1);
     store.setMeta('rules', S.rules).then(() => { recompute(); render(); });
@@ -476,7 +590,7 @@ async function removeAccount(id) {
 
 async function wipe() {
   await store.clearAll();
-  S.accounts = []; S.txns = []; S.rules = []; S.results = [];
+  S.accounts = []; S.txns = []; S.rules = []; S.results = []; S.skipped.clear(); S.reviewStack = [];
   recompute(); render();
   toast('All data deleted');
 }

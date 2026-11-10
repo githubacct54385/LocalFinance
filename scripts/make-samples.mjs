@@ -34,6 +34,10 @@ for (let d = START; d <= END; d = addDays(d, 1)) {
   if (dom === 5 || dom === 20) checking.push({ d, desc: 'ACME CORP PAYROLL', amt: 3037.68 });
   // rent by check, #1001 upward, on the 1st
   if (dom === 1) checking.push({ d, desc: 'CHECK', amt: -1450, check: String(1001 + checking.filter((x) => x.check).length) });
+  // monthly brokerage contribution + a couple of Zelle payments (deterministic, no randomness)
+  if (dom === 12) checking.push({ d, desc: `ONLINE TRANSFER REF #IB0${(dom * 7919 + d.getUTCMonth() * 104729) % 1e8} TO SCHWAB BROKERAGE MONEYLINK ON ${mdy2(d)}`, amt: -300 });
+  if (dom === 9) checking.push({ d, desc: `ZELLE FROM A FRIEND ON ${mdy2(d)} REF #${dom}XK${d.getUTCMonth()}`, amt: 45 });
+  if (dom === 18) checking.push({ d, desc: `ZELLE TO A NEIGHBOR ON ${mdy2(d)} REF #${dom}QZ${d.getUTCMonth()}`, amt: -75 });
   // internet + electric
   if (dom === 8) checking.push({ d, desc: 'SPECTRUM INTERNET AUTOPAY', amt: -79.99 });
   if (dom === 12) checking.push({ d, desc: 'CITY POWER & LIGHT ELECTRIC', amt: -Number(between(70, 140).toFixed(2)) });

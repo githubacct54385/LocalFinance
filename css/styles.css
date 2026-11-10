@@ -84,6 +84,8 @@ main { max-width: 820px; margin: 0 auto; padding: 8px 16px 24px; display: grid; 
 .row.between { justify-content: space-between; }
 
 .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.kpis.four { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 600px) { .kpis.four { grid-template-columns: repeat(4, 1fr); } }
 .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-width: 0; }
 .kpi .label { font-size: 12px; color: var(--muted); }
 .kpi .value { font-size: clamp(16px, 4.8vw, 26px); font-weight: 700; white-space: nowrap; }
@@ -181,3 +183,14 @@ dialog h2 { font-size: 17px; }
   .s1 { fill: Highlight; }
   .s2 { fill: LinkText; stroke: CanvasText; stroke-width: 1; }
 }
+
+/* review by merchant */
+.review h2.rname { font-size: 22px; margin-bottom: 4px; }
+.review .hint { margin-top: 0; }
+.list.compact li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--grid); font-size: 14px; color: var(--ink-2); }
+.list.compact li:first-child { border-top: 0; }
+.cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+@media (min-width: 600px) { .cats { grid-template-columns: repeat(4, 1fr); } }
+.btn.cat { min-height: 46px; padding: 6px 4px; font-size: 14px; font-weight: 600; line-height: 1.2; }
+.btn.cat.suggest { outline: 3px solid var(--accent); outline-offset: 1px; }
+.tag.invest { color: var(--s1); font-weight: 600; }

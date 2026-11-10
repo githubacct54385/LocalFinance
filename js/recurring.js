@@ -25,7 +25,8 @@ export function detectRecurring(rows, asOf) {
   const groups = new Map();
   for (const r of rows) {
     if (r.isCheck || r.checkNo || r.merchant === 'UNKNOWN') continue;
-    const kind = r.type === 'spending' ? 'expense' : r.type === 'income' ? 'income' : null;
+    const kind = r.type === 'spending' ? 'expense' : r.type === 'income' ? 'income'
+      : r.type === 'investment' && r.amount < 0 ? 'investment' : null;
     if (!kind) continue;
     const k = `${kind}|${r.merchant}`;
     if (!groups.has(k)) groups.set(k, { kind, merchant: r.merchant, items: [] });
