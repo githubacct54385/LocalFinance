@@ -1,0 +1,32 @@
+# Never commit real financial data
+*.csv
+*.CSV
+*.tsv
+*.ofx
+*.qfx
+*.qif
+*.xls
+*.xlsx
+*.pdf
+data/
+private/
+backups/
+*backup*.json
+*.sqlite
+*.db
+
+# Allow fake sample data only
+!samples/
+!samples/*.csv
+
+# Secrets / env
+.env
+.env.*
+*.pem
+*.key
+
+# OS / editor / tooling
+.DS_Store
+node_modules/
+.vscode/
+.idea/
