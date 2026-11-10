@@ -368,7 +368,21 @@ document.addEventListener('pointerover', (e) => {
 });
 document.addEventListener('scroll', hideTip, true);
 
-document.addEventListener('click', (e) => {
+/** In-page confirmation (native confirm() is silently blocked in some browsers / Home Screen apps). */
+function askConfirm(message, okLabel = 'Delete') {
+  return new Promise((resolve) => {
+    const dlg = $('#dlg');
+    dlg.innerHTML = `<form id="confirmform">
+      <h2>Are you sure?</h2><p>${esc(message)}</p>
+      <div class="row between"><button type="button" class="btn secondary" data-action="close-dlg">Cancel</button>
+      <button class="btn danger" type="submit">${esc(okLabel)}</button></div></form>`;
+    dlg.returnValue = '';
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
+    dlg.showModal();
+  });
+}
+
+document.addEventListener('click', async (e) => {
   const v = e.target.closest('[data-view]');
   if (v) { S.view = v.dataset.view; render(); window.scrollTo(0, 0); return; }
   const a = e.target.closest('[data-action]');
@@ -384,9 +398,9 @@ document.addEventListener('click', (e) => {
   } else if (act === 'del-acct') {
     e.preventDefault();
     const acct = S.accounts.find((x) => x.id === a.dataset.id);
-    if (confirm(`Remove "${acct.name}" and all of its transactions from this device?`)) removeAccount(acct.id);
+    if (await askConfirm(`Remove "${acct.name}" and all of its transactions from this device?`, 'Remove')) await removeAccount(acct.id);
   } else if (act === 'wipe') {
-    if (confirm('Delete ALL accounts, transactions and rules from this device? This cannot be undone.')) wipe();
+    if (await askConfirm('Delete ALL accounts, transactions and rules from this device? This cannot be undone.', 'Delete everything')) await wipe();
   }
 });
 
@@ -397,6 +411,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   if (e.target.id === 'txform') submitTx(e.target);
+  else if (e.target.id === 'confirmform') $('#dlg').close('ok');
 });
 
 document.addEventListener('change', async (e) => {
@@ -437,7 +452,7 @@ async function exportBackup() {
 async function restore(file) {
   try {
     const data = JSON.parse(await file.text());
-    if (S.txns.length && !confirm('Replace the data currently on this device with this backup?')) return;
+    if (S.txns.length && !(await askConfirm('Replace the data currently on this device with this backup?', 'Replace'))) return;
     await store.importBackup(data);
     await load();
     toast('Backup restored');

@@ -1,6 +1,6 @@
 // Offline cache for the app shell only. It never touches your data (that is in IndexedDB).
 // Bump VERSION whenever any cached file changes so installed copies pick up the update.
-const VERSION = 'lf-v2';
+const VERSION = 'lf-v3';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/app.js', './js/analysis.js', './js/categories.js', './js/charts.js', './js/csv.js',

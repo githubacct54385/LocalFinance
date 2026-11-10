@@ -7,6 +7,6 @@
   "scripts": {
     "test": "node --test \"test/*.test.mjs\"",
     "samples": "node scripts/make-samples.mjs",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 scripts/dev-server.py 8080"
   }
 }
